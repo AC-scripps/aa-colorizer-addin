@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+
+  <Id>59ad17e0-8a19-424f-9f78-d584c5be64cd</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Diercks Lab, Scripps Research</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Amino Acid Colorizer" />
+  <Description DefaultValue="Colors single-letter amino acid codes in PowerPoint tables by side-chain chemical property." />
+  <IconUrl DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/assets/icon-80.png" />
+  <SupportUrl DefaultValue="https://github.com/AC-scripps/aa-colorizer-addin" />
+
+  <AppDomains>
+    <AppDomain>https://ac-scripps.github.io</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Presentation" />
+  </Hosts>
+
+  <!-- Load everywhere; the add-in checks for PowerPointApi 1.9 at runtime
+       and explains what to update if tables are unavailable. -->
+  <Requirements>
+    <Sets DefaultMinVersion="1.1">
+      <Set Name="PowerPointApi" MinVersion="1.1" />
+    </Sets>
+  </Requirements>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/taskpane.html" />
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Presentation">
+        <DesktopFormFactor>
+          <FunctionFile resid="Commands.Url" />
+
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="AAColorizer.Group">
+                <Label resid="Group.Label" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16" />
+                  <bt:Image size="32" resid="Icon.32" />
+                  <bt:Image size="80" resid="Icon.80" />
+                </Icon>
+
+                <Control xsi:type="Button" id="AAColorizer.ColorButton">
+                  <Label resid="ColorButton.Label" />
+                  <Supertip>
+                    <Title resid="ColorButton.Label" />
+                    <Description resid="ColorButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16" />
+                    <bt:Image size="32" resid="Icon.32" />
+                    <bt:Image size="80" resid="Icon.80" />
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>colorAminoAcids</FunctionName>
+                  </Action>
+                </Control>
+
+                <Control xsi:type="Button" id="AAColorizer.PaneButton">
+                  <Label resid="PaneButton.Label" />
+                  <Supertip>
+                    <Title resid="PaneButton.Label" />
+                    <Description resid="PaneButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16" />
+                    <bt:Image size="32" resid="Icon.32" />
+                    <bt:Image size="80" resid="Icon.80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>AAColorizerPane</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/assets/icon-16.png" />
+        <bt:Image id="Icon.32" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/assets/icon-32.png" />
+        <bt:Image id="Icon.80" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/assets/icon-80.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Commands.Url" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/commands.html" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/taskpane.html" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="Group.Label" DefaultValue="Amino Acids" />
+        <bt:String id="ColorButton.Label" DefaultValue="Color Residues" />
+        <bt:String id="PaneButton.Label" DefaultValue="Palette" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="ColorButton.Tooltip" DefaultValue="Color single-letter amino acid codes in the selected table by side-chain property." />
+        <bt:String id="PaneButton.Tooltip" DefaultValue="Open the palette, sequence mode, and reset options." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

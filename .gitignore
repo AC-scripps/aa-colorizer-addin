@@ -1,0 +1,6 @@
+.DS_Store
+Icon?
+._*
+__pycache__/
+*.pyc
+node_modules/

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Amino Acid Colorizer</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet" href="taskpane.css" />
+</head>
+<body>
+  <main id="app" hidden>
+    <h1>Amino Acid Colorizer</h1>
+
+    <p class="hint">
+      Select table cells (or just a table) and click Color. With nothing
+      selected, the whole slide is processed.
+    </p>
+
+    <div class="actions">
+      <button id="btn-color" class="primary">Color amino acids</button>
+      <button id="btn-sequence">Color as peptide sequence</button>
+      <button id="btn-reset">Reset to black</button>
+    </div>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+
+    <h2>Palette</h2>
+    <ul id="legend" class="legend"></ul>
+
+    <p class="footnote">
+      G and H are not in the source classification, so they stay black.
+      A letter is colored only when the characters on both sides are not
+      letters or digits &mdash; that is what keeps <code>C165</code>,
+      <code>SSM</code> and <code>2(L208P)</code> untouched.
+    </p>
+  </main>
+
+  <div id="unsupported" class="unsupported" hidden></div>
+
+  <script src="aa-colors.js"></script>
+  <script src="aa-apply.js"></script>
+  <script src="taskpane.js"></script>
+</body>
+</html>

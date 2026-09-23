@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>aa-colors.js tests</title>
+  <script src="../docs/aa-colors.js"></script>
+  <style>
+    body { font-family: ui-monospace, Menlo, monospace; padding: 20px; font-size: 13px; }
+    .pass { color: #0b6a0b; } .fail { color: #a4262c; font-weight: 700; }
+    h1 { font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>aa-colors.js — isolation rule tests</h1>
+  <pre id="out">running…</pre>
+
+  <script>
+    // Same cases as tools/check_isolation_rule.py in the VBA repo.
+    var MUST_NOT_COLOR = [
+      "SSM 3 Mutations", "SSM 31 mutations", "Clone", "Progress",
+      "C165", "K166", "S167", "F168", "Q184", "R231",
+      "R363", "L367", "N368", "F369", "D370", "A372",
+      "2(L208P)", "3(L208P)", "6(L208P)", "8(L208P)",
+      "ACDEFG"
+    ];
+
+    var MUST_COLOR = {
+      "C": ["00B0F0"], "Y": ["7030A0"], "N": ["009900"], "R": ["0070C0"],
+      "A": ["ED7D31"], "I": ["ED7D31"], "S": ["009900"], "P": ["808080"],
+      "T": ["009900"], "V": ["ED7D31"], "F": ["7030A0"], "L": ["ED7D31"],
+      "D": ["FF0000"], "E": ["FF0000"], "K": ["0070C0"], "W": ["7030A0"],
+      "M": ["ED7D31"], "Q": ["009900"],
+      "R / K": ["0070C0", "0070C0"],
+      "F, Y, W": ["7030A0", "7030A0", "7030A0"]
+    };
+
+    var UNCLASSIFIED = ["G", "H"];
+
+    // Flatten segments back to per-character colors for comparison.
+    function colorsOf(text, seqMode) {
+      var out = [];
+      segmentText(text, !!seqMode, false).forEach(function (s) {
+        if (s.color) for (var i = 0; i < s.text.length; i++) out.push(s.color);
+      });
+      return out;
+    }
+
+    var failures = [], total = 0;
+
+    MUST_NOT_COLOR.forEach(function (t) {
+      total++;
+      var got = colorsOf(t);
+      if (got.length) failures.push(JSON.stringify(t) + " should be untouched, got " + got);
+    });
+
+    Object.keys(MUST_COLOR).forEach(function (t) {
+      total++;
+      var got = colorsOf(t), want = MUST_COLOR[t];
+      if (got.join(",") !== want.join(",")) {
+        failures.push(JSON.stringify(t) + " expected [" + want + "] got [" + got + "]");
+      }
+    });
+
+    UNCLASSIFIED.forEach(function (t) {
+      total++;
+      if (colorsOf(t).length) failures.push(JSON.stringify(t) + " must stay black");
+    });
+
+    // Sequence mode colors every residue; G is unclassified so it drops out.
+    total++;
+    var seq = colorsOf("ACDEFG", true).join(",");
+    if (seq !== "ED7D31,00B0F0,FF0000,FF0000,7030A0") {
+      failures.push("sequence mode on 'ACDEFG' gave [" + seq + "]");
+    }
+
+    // Segment merging: consecutive same-color letters become one run.
+    total++;
+    var segs = segmentText("KR", true, false);
+    if (segs.length !== 1 || segs[0].text !== "KR" || segs[0].color !== "0070C0") {
+      failures.push("expected 'KR' to merge into one blue run, got " + JSON.stringify(segs));
+    }
+
+    // Reset mode blackens letters but leaves digits/punctuation alone.
+    total++;
+    var reset = segmentText("C165", false, true);
+    var resetColored = reset.filter(function (s) { return s.color; });
+    if (resetColored.length !== 1 || resetColored[0].text !== "C" || resetColored[0].color !== "000000") {
+      failures.push("reset mode on 'C165' gave " + JSON.stringify(reset));
+    }
+
+    var out = document.getElementById("out");
+    if (failures.length) {
+      out.className = "fail";
+      out.textContent = "FAIL  " + failures.length + " of " + total + " checks failed:\n" + failures.join("\n");
+    } else {
+      out.className = "pass";
+      out.textContent = "ok  " + total + " checks passed";
+    }
+  </script>
+</body>
+</html>
