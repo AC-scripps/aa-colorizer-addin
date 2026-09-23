@@ -95,17 +95,38 @@ fixing a typo you just re-color; no reset step. Previously, changing `L` to
 `G` left the cell orange forever, because `G` maps to no color and nothing
 was written.
 
+## Documentation
+
+| File | What it's for |
+|---|---|
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed each build, and **why** |
+| [`docs/DESIGN-NOTES.md`](docs/DESIGN-NOTES.md) | Constraints, dead ends, rejected options — **read before changing anything structural** |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | How to build, test and deploy, including the cache protocol |
+
+## Reporting a problem
+
+Open an issue with two things: the **build number** from the task pane header,
+and the **Diagnose** output. Those two resolve most reports immediately —
+without them, "nothing got colored" has at least four indistinguishable
+causes. There's an issue template that prompts for both.
+
 ## Layout
 
 ```
-manifest.xml              add-in manifest (this is what you sideload)
-docs/                     GitHub Pages root — the add-in is served from here
-  aa-colors.js            palette + isolation rule (single source of truth)
-  aa-apply.js             PowerPoint API layer: walks tables, rewrites textRuns
-  taskpane.html/.js/.css  task pane UI
-  commands.html/.js       headless host page for the ribbon button
-  assets/                 icons
-tools/test-aa-colors.html 46 checks for the isolation rule — open in a browser
+manifest.xml               add-in manifest (this is what you sideload)
+CHANGELOG.md               development history
+docs/                      GitHub Pages root — the add-in is served from here
+  aa-colors.js             palette + isolation rule (single source of truth)
+  aa-apply.js              PowerPoint API layer: resolve table, walk cells, write color
+  taskpane.html/.js/.css   task pane UI and region grid
+  commands.html/.js        headless host page for the ribbon button
+  assets/                  icons
+  DESIGN-NOTES.md          constraints, dead ends, rationale
+  DEVELOPMENT.md           build / test / deploy guide
+tools/
+  test-aa-colors.html      48 checks for the palette + isolation rule
+  palette_check.py         contrast + color-distance analysis
+  color-swatch.html        render candidate colors side by side
 ```
 
 ## Tests
@@ -119,3 +140,13 @@ python3 -m http.server 8765 && open http://127.0.0.1:8765/tools/test-aa-colors.h
 
 It runs the same cases as the VBA repo's `check_isolation_rule.py`, against
 the real header strings from the SSM progress table.
+
+For palette changes also run:
+
+```bash
+python3 tools/palette_check.py
+```
+
+which reads the live `AA_CATEGORIES` and reports contrast on white plus the
+distance from every color to every other. Keep the minimum distance at or
+above 80 — the palette's existing tightest pair (blue vs cyan).

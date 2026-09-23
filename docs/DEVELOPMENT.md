@@ -1,0 +1,149 @@
+# Development guide
+
+How to change this add-in and actually see the change. The cache protocol in
+§3 is the part that will waste your afternoon if you skip it.
+
+---
+
+## 1. Layout
+
+```
+manifest.xml              what gets sideloaded; points at the Pages URLs
+docs/                     GitHub Pages root (served at the repo's Pages URL)
+  aa-colors.js            palette + isolation rule — SINGLE SOURCE OF TRUTH
+  aa-apply.js             PowerPoint API layer: resolve table, walk cells, write color
+  taskpane.html/.js/.css  task pane UI, region grid
+  commands.html/.js       headless host page for the ribbon button
+  assets/                 icons (generated, see §6)
+  DESIGN-NOTES.md         constraints, dead ends, rationale — read first
+  DEVELOPMENT.md          this file
+tools/
+  test-aa-colors.html     48 checks on the palette + isolation rule
+  palette_check.py        contrast / color-distance analysis for palette changes
+  color-swatch.html       renders candidate colors side by side
+CHANGELOG.md              what changed each build, and why
+```
+
+Rule of thumb: coloring *logic* goes in `aa-colors.js`, anything touching the
+PowerPoint object model goes in `aa-apply.js`, anything touching the DOM goes
+in `taskpane.js`.
+
+## 2. Test locally without PowerPoint
+
+Most bugs are logic bugs and do not need Office at all.
+
+```bash
+python3 -m http.server 8765
+```
+
+Then open:
+
+- `http://127.0.0.1:8765/tools/test-aa-colors.html` — should say
+  **ok 48 checks passed**
+- `http://127.0.0.1:8765/docs/taskpane.html` — renders, though `Office.onReady`
+  will report "only runs in PowerPoint"
+
+To exercise the UI outside Office, unhide the app and feed it a fake table
+from the browser console:
+
+```js
+document.getElementById('app').hidden = false;
+buildLegend();
+tableData = { rows: 3, cols: 3, cells: [['Clone','K23','I24'],['1','L','P'],['2','T','F']] };
+renderGrid();
+document.getElementById('grid-wrap').hidden = false;
+setRegion({ r0: 1, c0: 1, r1: 2, c1: 2 });
+```
+
+**`file://` will not work** — the browser blocks the script loads. Always
+serve over HTTP.
+
+## 3. Deploying — the cache protocol
+
+PowerPoint caches add-in web content aggressively, and GitHub Pages serves
+`cache-control: max-age=600`. A deployed change can silently fail to load,
+which looks exactly like a broken fix. Build 2 was lost to this.
+
+**Every time you change anything under `docs/`, bump the version everywhere:**
+
+1. `docs/taskpane.html` — `?v=N` on all `src`/`href`, and the `build N` chip
+2. `docs/commands.html` — `?v=N` on all `src`
+3. `manifest.xml` — `<Version>1.0.N.0</Version>` and `?v=N` on the three
+   `taskpane.html` / `commands.html` URLs
+4. `tools/test-aa-colors.html` — `?v=N` on the `aa-colors.js` load
+
+Then:
+
+```bash
+git add -A && git commit -m "..." && git push
+# wait for the Pages build (roughly a minute)
+gh api repos/AC-scripps/aa-colorizer-addin/pages/builds/latest --jq '.status,.commit'
+# reinstall the manifest and restart PowerPoint
+cp manifest.xml ~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef/aa-colorizer.manifest.xml
+```
+
+Finally **quit PowerPoint with ⌘Q and reopen** — the `wef` folder is only
+scanned at launch.
+
+**Confirm the load**: the task pane header must show the `build N` you just
+shipped. If it shows an older number, the cache won. Do not debug anything
+else until that number is right.
+
+Deliberately *not* done: clearing `~/Library/Containers/com.microsoft.Powerpoint/Data/Library/Caches`.
+It is ~450 MB of WebKit cache and the versioned URLs make it unnecessary.
+
+## 4. Sideloading (first install)
+
+```bash
+mkdir -p ~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef
+cp manifest.xml ~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef/aa-colorizer.manifest.xml
+xattr -c ~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef/aa-colorizer.manifest.xml
+```
+
+Restart PowerPoint. An **Amino Acids** group appears on the Home tab. Strip
+the quarantine attribute (`xattr -c`) or Office may treat the file as
+untrusted.
+
+## 5. Debugging inside PowerPoint
+
+There is no console you can easily reach, so the task pane carries its own:
+the **Diagnose** button dumps what the add-in actually sees —
+
+```json
+{ "count": 0, "cleared": 0, "tables": 1,
+  "diag": { "selectedShapes": 1, "shapeTypes": ["Table"],
+            "dimensions": "25x8", "cellsConsidered": 120,
+            "paths": { "cellFont": 84 },
+            "samples": [ { "rc": "1,1", "text": "\"L\"", "runs": ["\"L\""] } ] } }
+```
+
+How to read it:
+
+| Symptom | Meaning |
+|---|---|
+| `tables: 0` | the shape was not recognised as a table |
+| `dimensions: "0x0"` | table found but not readable |
+| `samples[].runs: "(undefined)"` | `textRuns` unavailable — the `cellFont` path should carry it |
+| `paths` populated but no visible color | the write succeeded and PowerPoint rejected the value; check the `#RRGGBB` format |
+
+Add fields to `diag` freely — it is a debugging surface, not an API.
+
+## 6. Regenerating icons
+
+Icons are plain PNGs generated by a small pure-Python encoder (no Pillow
+dependency). The original generator is in the build-1 commit; the quadrant
+colors are the palette's purple / blue / green / orange. Sizes 16, 32, 80 are
+referenced by the manifest; 64 is spare.
+
+## 7. Changing the palette
+
+1. Edit `AA_CATEGORIES` in `docs/aa-colors.js` — everything else (legend,
+   ribbon command, tests) derives from it.
+2. Run `python3 tools/palette_check.py` to check contrast on white and
+   distance from every existing color. **Keep min distance ≥ 80** — that is
+   the palette's existing tightest pair (blue vs cyan).
+3. Open `tools/color-swatch.html` over HTTP to eyeball candidates as they
+   would appear in a table. Numbers alone have misled here before: build 3's
+   jade passed the distance check and still looked wrong in use.
+4. Update the expected colors in `tools/test-aa-colors.html`.
+5. Follow §3 to deploy.

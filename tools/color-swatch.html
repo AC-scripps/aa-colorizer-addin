@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Palette swatch</title>
+  <script src="../docs/aa-colors.js?v=4"></script>
+  <style>
+    body { font-family: -apple-system, "Segoe UI", sans-serif; padding: 20px;
+           background: #fff; color: #1b1b1b; max-width: 820px; }
+    h1 { font-size: 17px; }
+    h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+         color: #666; margin: 22px 0 8px; }
+    p  { font-size: 13px; color: #555; line-height: 1.5; }
+    table { border-collapse: collapse; margin-bottom: 4px; }
+    td { padding: 3px 9px; font-size: 17px; font-weight: 700; text-align: center;
+         border: 1px solid #e1dfdd; font-family: ui-monospace, Menlo, monospace; }
+    td.lab { font-family: -apple-system, sans-serif; font-size: 11px;
+             font-weight: 400; color: #666; text-align: left; min-width: 210px; }
+    input { font: inherit; font-size: 13px; padding: 6px 8px; width: 100%;
+            box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;
+            font-family: ui-monospace, Menlo, monospace; }
+  </style>
+</head>
+<body>
+  <h1>Palette swatch</h1>
+  <p>
+    Renders colors as they appear in a real table, at real size. Numbers from
+    <code>tools/palette_check.py</code> are necessary but not sufficient &mdash;
+    build 3's histidine jade passed the distance check and still read as too
+    close to the polar green. Look before committing.
+  </p>
+
+  <h2>Current palette</h2>
+  <div id="current"></div>
+
+  <h2>Compare candidates</h2>
+  <p>Comma-separated hex values, with or without <code>#</code>. Each is shown
+     as <code>H</code> beside the real palette for context.</p>
+  <input id="cands" value="22BF70, 15C174, 1BBB73, 2E9B6E" />
+  <div id="compare" style="margin-top:10px"></div>
+
+  <script>
+    function row(label, pairs) {
+      var html = "<table><tr><td class='lab'>" + label + "</td>";
+      pairs.forEach(function (p) {
+        html += "<td style='color:#" + p[1] + "'>" + p[0] + "</td>";
+      });
+      return html + "</tr></table>";
+    }
+
+    document.getElementById("current").innerHTML =
+      AA_CATEGORIES.map(function (cat) {
+        return row(cat.color + " &mdash; " + cat.name,
+          cat.residues.split("").map(function (r) { return [r, cat.color]; }));
+      }).join("");
+
+    // Context row: one letter from each existing category, so a candidate can
+    // be judged against everything it will sit next to.
+    function contextPairs() {
+      return AA_CATEGORIES.map(function (c) { return [c.residues[0], c.color]; });
+    }
+
+    function renderCompare() {
+      var list = document.getElementById("cands").value
+        .split(",").map(function (s) { return s.trim().replace(/^#/, "").toUpperCase(); })
+        .filter(function (s) { return /^[0-9A-F]{6}$/.test(s); });
+
+      document.getElementById("compare").innerHTML = list.map(function (hex) {
+        var pairs = contextPairs();
+        // Drop any existing H so the candidate stands in for it.
+        pairs = pairs.filter(function (p) { return p[0] !== "H"; });
+        pairs.splice(3, 0, ["H", hex], ["H", hex]);
+        return row(hex, pairs);
+      }).join("") || "<p>No valid hex values.</p>";
+    }
+
+    document.getElementById("cands").addEventListener("input", renderCompare);
+    renderCompare();
+  </script>
+</body>
+</html>
