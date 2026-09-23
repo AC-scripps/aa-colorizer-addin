@@ -74,17 +74,33 @@ function inRegion(region, r, c) {
   return r >= region.r0 && r <= region.r1 && c >= region.c0 && c <= region.c1;
 }
 
-function soleResidueColor(text, seqMode, resetMode) {
-  var t = (text || "").replace(/[\s ]+/g, "");
-  if (t.length !== 1) return null;
-  if (resetMode) return /[A-Za-z]/.test(t) ? BLACK : null;
-  var segs = segmentText(t, seqMode, false);
-  return segs.length === 1 ? segs[0].color : null;
+/*
+ * A cell holding exactly one letter is treated as a residue cell and is
+ * ALWAYS given an explicit color: the category color, or black when the
+ * letter maps to no category (G, X, ...).
+ *
+ * This is what makes re-coloring idempotent. Previously, editing a typo from
+ * "L" to "G" left the cell orange forever: G has no color, so nothing was
+ * written and the stale run color survived. Writing black explicitly means a
+ * single re-color always lands on the right answer, with no reset step.
+ */
+function soleLetter(text) {
+  var t = (text || "").replace(/[\s\u00a0]+/g, "");
+  return (t.length === 1 && /[A-Za-z]/.test(t)) ? t : null;
 }
 
 function recolorCell(cell, seqMode, resetMode) {
-  var runs = cell.textRuns;
+  var letter = soleLetter(cell.text);
 
+  if (letter) {
+    var mapped = resetMode ? null : aaColorOf(letter);
+    var color = mapped || BLACK;
+    cell.font.color = hex(color);
+    return { count: mapped ? 1 : 0, cleared: mapped ? 0 : 1, path: "cellFont" };
+  }
+
+  // Multi-character cell: rewrite per-run so individual letters can differ.
+  var runs = cell.textRuns;
   if (runs && runs.length) {
     var newRuns = [];
     var changed = false;
@@ -110,17 +126,30 @@ function recolorCell(cell, seqMode, resetMode) {
 
     if (changed) {
       cell.textRuns = newRuns;
-      return { count: count, path: "textRuns" };
+      return { count: count, cleared: 0, path: "textRuns" };
     }
   }
 
-  var color = soleResidueColor(cell.text, seqMode, resetMode);
-  if (color) {
-    cell.font.color = hex(color);
-    return { count: 1, path: "cellFont" };
-  }
+  return { count: 0, cleared: 0, path: null };
+}
 
-  return { count: 0, path: null };
+/*
+ * Best-effort read of PowerPoint's own selection.
+ *
+ * There is no selected-table-cell API, but getSelectedTextRangeOrNullObject
+ * sometimes reports the text of a highlighted cell block. When it does, the
+ * task pane matches that text back to a rectangular region. When it does not,
+ * the raw result is surfaced so the failure is legible rather than silent.
+ */
+async function getSelectedTextInfo() {
+  requireTableApi();
+  return PowerPoint.run(async function (context) {
+    var tr = context.presentation.getSelectedTextRangeOrNullObject();
+    tr.load("text,start,length,isNullObject");
+    await context.sync();
+    if (tr.isNullObject) return { available: false, reason: "no text selection" };
+    return { available: true, text: tr.text, start: tr.start, length: tr.length };
+  });
 }
 
 /*
@@ -196,7 +225,7 @@ async function applyColors(options) {
 
     diag.cellsConsidered = handles.length;
 
-    var total = 0;
+    var total = 0, cleared = 0;
     handles.forEach(function (h) {
       if (h.cell.isNullObject) return;
 
@@ -212,10 +241,11 @@ async function applyColors(options) {
 
       var res = recolorCell(h.cell, seqMode, resetMode);
       total += res.count;
+      cleared += res.cleared || 0;
       if (res.path) diag.paths[res.path] = (diag.paths[res.path] || 0) + 1;
     });
     await context.sync();
 
-    return { count: total, tables: 1, reason: null, diag: diag };
+    return { count: total, cleared: cleared, tables: 1, reason: null, diag: diag };
   });
 }

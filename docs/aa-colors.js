@@ -12,7 +12,7 @@ var AA_CATEGORIES = [
   { name: "Aromatic",              residues: "FYW",   color: "7030A0" },
   { name: "Basic (+)",             residues: "KR",    color: "0070C0" },
   { name: "Polar, uncharged",      residues: "STNQ",  color: "009900" },
-  { name: "Histidine",             residues: "H",     color: "2E9B6E" },
+  { name: "Histidine",             residues: "H",     color: "22BF70" },
   { name: "Nonpolar / aliphatic",  residues: "AVLIM", color: "ED7D31" },
   { name: "Thiol (disulfide)",     residues: "C",     color: "00B0F0" },
   { name: "Structurally special",  residues: "P",     color: "808080" },
@@ -22,11 +22,13 @@ var AA_CATEGORIES = [
 // G is absent from the source classification, so it stays black. Add
 // { name: "Glycine", residues: "G", color: "ED7D31" } above to change that.
 //
-// H was given its own jade (#2E9B6E) rather than being folded into the
-// basic group: histidine is only ~10% protonated at pH 7.4, so it behaves
-// unlike K and R. Jade was chosen over teal/PPT-green because its nearest
-// palette neighbour is gray at distance 88 (the palette's existing tightest
-// pair, blue vs cyan, is 80) and it holds 3.48:1 contrast on white.
+// H has its own mint (#22BF70) rather than being folded into the basic
+// group: histidine is only ~10% protonated at pH 7.4, so it behaves unlike
+// K and R. Picked by searching hue 120-175 for the largest separation from
+// the whole palette subject to staying legible on white: min distance 114
+// (the palette's existing tightest pair, blue vs cyan, is 80), distance 123
+// from the polar green, contrast 2.40:1. An earlier, darker jade (#2E9B6E,
+// contrast 3.48) read as too close to the polar green in practice.
 
 var AA_COLOR = (function () {
   var map = {};

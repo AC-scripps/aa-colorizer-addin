@@ -15,12 +15,15 @@ VBA implementation lives in `AC-scripps/powerpoint-amino-acid-colorizer`.)
 | Aromatic | F Y W | `#7030A0` purple |
 | Basic (positively charged) | K R | `#0070C0` blue |
 | Polar, uncharged | S T N Q | `#009900` green |
+| Histidine | H | `#22BF70` mint |
 | Nonpolar / aliphatic | A V L I M | `#ED7D31` orange |
 | Special sulfur-containing | C | `#00B0F0` cyan |
 | Structurally special | P | `#808080` gray |
 | Acidic (negatively charged) | D E | `#FF0000` red |
 
-G and H are absent from the source classification, so they stay black.
+G is absent from the source classification, so it stays black. H was
+given its own mint rather than joining K/R: histidine is only ~10%
+protonated at pH 7.4, so it behaves unlike the strong bases.
 
 ## The isolation rule
 
@@ -64,14 +67,33 @@ Catalogs, then insert from My Add-ins → Shared Folder.
 
 ## Use
 
-Select table cells (or a table), then either:
+**PowerPoint's API cannot see which table cells you have highlighted.**
+`Presentation` exposes only `getSelectedShapes()`, `getSelectedSlides()` and
+`getSelectedTextRange()`; selecting a block of cells hands the add-in the
+whole table shape. So region picking happens in the task pane:
 
-- Click **Color Residues** on the Home tab — one click, no task pane.
-- Click **Palette** to open the task pane, which adds *Color as peptide
-  sequence* (colors every letter of a string like `ACDEFG`) and *Reset to
-  black*.
+1. Click the table on the slide, then **Load table**.
+2. Pick a region — drag, or click one cell and shift-click another, or click
+   a row/column number to take the whole row or column. Dragging past the
+   edge auto-scrolls.
+3. **Color amino acids** applies to that region only. **Clear** restores
+   whole-table.
 
-With nothing selected, the whole current slide is processed.
+**Use PowerPoint selection** is a best-effort attempt to read the native
+selection via `getSelectedTextRangeOrNullObject` and match it back to a
+rectangle. PowerPoint often reports nothing for cell blocks; when it does,
+this saves you the manual pick.
+
+Also available: *Color as peptide sequence* (colors every letter of a string
+like `ACDEFG`) and *Reset to black*.
+
+### Re-coloring is idempotent
+
+Any cell holding a single letter always gets an explicit color written —
+the category color, or black when the letter has no category. So after
+fixing a typo you just re-color; no reset step. Previously, changing `L` to
+`G` left the cell orange forever, because `G` maps to no color and nothing
+was written.
 
 ## Layout
 

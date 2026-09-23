@@ -158,3 +158,6 @@ button.link {
 }
 .grid td.sel { background: #cfe4f7; }
 .grid td.trunc { color: var(--muted); }
+
+.grid th.hdr { cursor: pointer; }
+.grid th.hdr:hover { background: #eaeaea; }

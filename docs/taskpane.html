@@ -5,19 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Amino Acid Colorizer</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-  <link rel="stylesheet" href="taskpane.css?v=3" />
+  <link rel="stylesheet" href="taskpane.css?v=4" />
 </head>
 <body>
   <main id="app" hidden>
-    <h1>Amino Acid Colorizer <span class="build">build 3</span></h1>
+    <h1>Amino Acid Colorizer <span class="build">build 4</span></h1>
 
     <p class="hint">
-      Click a table on the slide, then <b>Load table</b>. Drag across the grid
-      to pick a region &mdash; only that region gets colored.
+      Click a table on the slide, then <b>Load table</b>. Pick a region by
+      dragging, or click one cell and <b>shift-click</b> another. Click a row
+      or column number to take the whole row or column.
     </p>
 
     <div class="actions">
       <button id="btn-load">Load table</button>
+      <button id="btn-detect">Use PowerPoint selection</button>
     </div>
 
     <div id="grid-wrap" hidden>
@@ -42,18 +44,19 @@
     <ul id="legend" class="legend"></ul>
 
     <p class="footnote">
-      G is not in the source classification, so it stays black. H has its own
-      jade, since histidine is only ~10% protonated at pH&nbsp;7.4 and behaves
-      unlike K and R. A letter is colored only when the characters on both
-      sides are not letters or digits &mdash; that is what keeps
-      <code>C165</code>, <code>SSM</code> and <code>2(L208P)</code> untouched.
+      Any cell holding a single letter is always given an explicit color, so
+      re-coloring after fixing a typo overwrites the old color &mdash; no reset
+      needed. Letters with no category (G, X&hellip;) are set to black. In
+      longer text a letter is colored only when the characters on both sides
+      are not letters or digits, which keeps <code>C165</code>,
+      <code>SSM</code> and <code>2(L208P)</code> untouched.
     </p>
   </main>
 
   <div id="unsupported" class="unsupported" hidden></div>
 
-  <script src="aa-colors.js?v=3"></script>
-  <script src="aa-apply.js?v=3"></script>
-  <script src="taskpane.js?v=3"></script>
+  <script src="aa-colors.js?v=4"></script>
+  <script src="aa-apply.js?v=4"></script>
+  <script src="taskpane.js?v=4"></script>
 </body>
 </html>
