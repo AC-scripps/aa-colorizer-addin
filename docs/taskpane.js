@@ -1,5 +1,7 @@
 /* Task pane UI. */
 
+var BUTTONS = ["btn-color", "btn-sequence", "btn-reset", "btn-diagnose"];
+
 Office.onReady(function (info) {
   if (info.host !== Office.HostType.PowerPoint) {
     show("unsupported", "This add-in only runs in PowerPoint.");
@@ -7,12 +9,12 @@ Office.onReady(function (info) {
   }
 
   buildLegend();
-
   document.getElementById("app").hidden = false;
 
   bind("btn-color", { seqMode: false, resetMode: false });
   bind("btn-sequence", { seqMode: true, resetMode: false });
   bind("btn-reset", { seqMode: true, resetMode: true });
+  bind("btn-diagnose", { seqMode: false, resetMode: false, diagnose: true });
 
   if (!hasTableApi()) {
     setStatus(
@@ -20,9 +22,7 @@ Office.onReady(function (info) {
       "Update Office to use this add-in.",
       "error"
     );
-    ["btn-color", "btn-sequence", "btn-reset"].forEach(function (id) {
-      document.getElementById(id).disabled = true;
-    });
+    setButtonsDisabled(true);
   }
 });
 
@@ -35,19 +35,25 @@ function bind(id, options) {
 async function run(options) {
   setButtonsDisabled(true);
   setStatus("Working…");
+  hideDiag();
+
   try {
     var result = await applyColors({
       seqMode: options.seqMode,
       resetMode: options.resetMode,
+      diagnose: options.diagnose,
       scope: "selection"
     });
 
-    if (result.reason === "no-tables") {
+    if (options.diagnose) {
+      showDiag(result);
+      setStatus("Diagnostics below — send this to Claude.", "ok");
+    } else if (result.reason === "no-tables") {
       setStatus("No table found in the selection or on this slide.", "error");
     } else if (result.count === 0) {
       setStatus(
-        "Found " + result.tables + " table(s) but nothing matched. " +
-        "Single letters glued to digits (like C165) are skipped by design.",
+        "Found " + result.tables + " table(s) but colored nothing. " +
+        "Click Diagnose and send the output.",
         "error"
       );
     } else {
@@ -58,14 +64,29 @@ async function run(options) {
       );
     }
   } catch (err) {
-    setStatus(err.message || String(err), "error");
+    setStatus((err && err.message) || String(err), "error");
+    showDiag({
+      error: (err && err.message) || String(err),
+      code: err && err.code,
+      debugInfo: err && err.debugInfo
+    });
   } finally {
     setButtonsDisabled(false);
   }
 }
 
+function showDiag(obj) {
+  var el = document.getElementById("diag");
+  el.textContent = JSON.stringify(obj, null, 2);
+  el.hidden = false;
+}
+
+function hideDiag() {
+  document.getElementById("diag").hidden = true;
+}
+
 function setButtonsDisabled(state) {
-  ["btn-color", "btn-sequence", "btn-reset"].forEach(function (id) {
+  BUTTONS.forEach(function (id) {
     document.getElementById(id).disabled = state;
   });
 }
