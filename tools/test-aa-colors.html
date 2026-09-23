@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>aa-colors.js tests</title>
-  <script src="../docs/aa-colors.js"></script>
+  <script src="../docs/aa-colors.js?v=3"></script>
   <style>
     body { font-family: ui-monospace, Menlo, monospace; padding: 20px; font-size: 13px; }
     .pass { color: #0b6a0b; } .fail { color: #a4262c; font-weight: 700; }
@@ -29,12 +29,13 @@
       "A": ["ED7D31"], "I": ["ED7D31"], "S": ["009900"], "P": ["808080"],
       "T": ["009900"], "V": ["ED7D31"], "F": ["7030A0"], "L": ["ED7D31"],
       "D": ["FF0000"], "E": ["FF0000"], "K": ["0070C0"], "W": ["7030A0"],
-      "M": ["ED7D31"], "Q": ["009900"],
+      "M": ["ED7D31"], "Q": ["009900"], "H": ["2E9B6E"],
       "R / K": ["0070C0", "0070C0"],
       "F, Y, W": ["7030A0", "7030A0", "7030A0"]
     };
 
-    var UNCLASSIFIED = ["G", "H"];
+    // G alone is unclassified now; H got its own jade.
+    var UNCLASSIFIED = ["G"];
 
     // Flatten segments back to per-character colors for comparison.
     function colorsOf(text, seqMode) {
@@ -87,6 +88,20 @@
     if (resetColored.length !== 1 || resetColored[0].text !== "C" || resetColored[0].color !== "000000") {
       failures.push("reset mode on 'C165' gave " + JSON.stringify(reset));
     }
+
+    // Histidine must not collide with the polar green it sits next to.
+    total++;
+    if (AA_COLOR["H"] === AA_COLOR["S"]) {
+      failures.push("H and S share a color; H should have its own");
+    }
+
+    // Every category colour must be distinct.
+    total++;
+    var seen = {};
+    AA_CATEGORIES.forEach(function (cat) {
+      if (seen[cat.color]) failures.push("duplicate palette color " + cat.color);
+      seen[cat.color] = true;
+    });
 
     var out = document.getElementById("out");
     if (failures.length) {

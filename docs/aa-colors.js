@@ -12,14 +12,21 @@ var AA_CATEGORIES = [
   { name: "Aromatic",              residues: "FYW",   color: "7030A0" },
   { name: "Basic (+)",             residues: "KR",    color: "0070C0" },
   { name: "Polar, uncharged",      residues: "STNQ",  color: "009900" },
+  { name: "Histidine",             residues: "H",     color: "2E9B6E" },
   { name: "Nonpolar / aliphatic",  residues: "AVLIM", color: "ED7D31" },
   { name: "Thiol (disulfide)",     residues: "C",     color: "00B0F0" },
   { name: "Structurally special",  residues: "P",     color: "808080" },
   { name: "Acidic (−)",       residues: "DE",    color: "FF0000" }
 ];
 
-// G and H are absent from the source classification, so they stay black.
-// Add e.g. { name: "Glycine", residues: "G", color: "ED7D31" } to change that.
+// G is absent from the source classification, so it stays black. Add
+// { name: "Glycine", residues: "G", color: "ED7D31" } above to change that.
+//
+// H was given its own jade (#2E9B6E) rather than being folded into the
+// basic group: histidine is only ~10% protonated at pH 7.4, so it behaves
+// unlike K and R. Jade was chosen over teal/PPT-green because its nearest
+// palette neighbour is gray at distance 88 (the palette's existing tightest
+// pair, blue vs cyan, is 80) and it holds 3.48:1 contrast on white.
 
 var AA_COLOR = (function () {
   var map = {};

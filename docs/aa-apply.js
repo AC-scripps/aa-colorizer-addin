@@ -1,13 +1,19 @@
 /*
- * PowerPoint layer. Walks the selection and recolors amino acid codes in
- * table cells.
+ * PowerPoint layer.
  *
- * Two write paths, because TableCell.textRuns is not reliably populated on
- * every build:
- *   1. textRuns  - preferred; lets us color individual letters inside a cell.
- *   2. cell.font - fallback; colors the whole cell, which is correct whenever
- *                  the cell holds exactly one residue (the common case for
- *                  SSM clone tables).
+ * IMPORTANT CONSTRAINT: PowerPoint's JavaScript API has no concept of a
+ * selected table cell. Presentation exposes only getSelectedShapes(),
+ * getSelectedSlides() and getSelectedTextRange() -- when the user drags
+ * across a block of cells, the add-in is handed the *table shape*, with no
+ * indication of which cells are highlighted. That is why coloring "the
+ * selection" always hit the whole table. The fix is the region grid in the
+ * task pane: the user picks rows/columns there, and we honour that here.
+ *
+ * Two write paths, because TableCell.textRuns is not populated on every
+ * build:
+ *   1. textRuns  - preferred; can color individual letters inside a cell.
+ *   2. cell.font - fallback; colors the whole cell, correct when the cell
+ *                  holds exactly one residue (the SSM clone table case).
  *
  * Requires PowerPointApi 1.9 (Mac 16.100+, Windows 2508+).
  */
@@ -20,23 +26,65 @@ function hex(c) {
   return "#" + c;
 }
 
-// The whole cell is a single colorable residue, e.g. "L" or " P ".
+function requireTableApi() {
+  if (!hasTableApi()) {
+    throw new Error(
+      "This needs PowerPointApi 1.9 (Mac 16.100+ / Windows 2508+). " +
+      "Your PowerPoint is older - update Office and try again."
+    );
+  }
+}
+
+// Resolve the table to act on: the first table in the selection, else the
+// first table on the current slide.
+async function resolveTable(context, diag) {
+  var selected = context.presentation.getSelectedShapes();
+  selected.load("items/id,items/type");
+  await context.sync();
+
+  var targets = selected.items;
+  if (diag) diag.selectedShapes = targets.length;
+
+  if (!targets.length) {
+    var slide = context.presentation.getSelectedSlides().getItemAt(0);
+    var all = slide.shapes;
+    all.load("items/id,items/type");
+    await context.sync();
+    targets = all.items;
+    if (diag) diag.usedSlideFallback = true;
+  }
+
+  var table = null;
+  for (var i = 0; i < targets.length; i++) {
+    if (diag) diag.shapeTypes.push(String(targets[i].type));
+    if (!table && String(targets[i].type).toLowerCase() === "table") {
+      table = targets[i].getTable();
+    }
+  }
+  if (!table) return null;
+
+  table.load("rowCount,columnCount");
+  await context.sync();
+  return table;
+}
+
+// true when (r, c) is inside the region, or when there is no region.
+function inRegion(region, r, c) {
+  if (!region) return true;
+  return r >= region.r0 && r <= region.r1 && c >= region.c0 && c <= region.c1;
+}
+
 function soleResidueColor(text, seqMode, resetMode) {
-  var t = (text || "").replace(/[\s ]+/g, "");
+  var t = (text || "").replace(/[\s ]+/g, "");
   if (t.length !== 1) return null;
   if (resetMode) return /[A-Za-z]/.test(t) ? BLACK : null;
   var segs = segmentText(t, seqMode, false);
   return segs.length === 1 ? segs[0].color : null;
 }
 
-/*
- * Recolor one cell. Returns { count, path } where path records which write
- * path was used, so the diagnostics can report it.
- */
 function recolorCell(cell, seqMode, resetMode) {
   var runs = cell.textRuns;
 
-  // Path 1: per-run rewriting.
   if (runs && runs.length) {
     var newRuns = [];
     var changed = false;
@@ -64,11 +112,8 @@ function recolorCell(cell, seqMode, resetMode) {
       cell.textRuns = newRuns;
       return { count: count, path: "textRuns" };
     }
-    // Runs existed but nothing matched - fall through to the cell path in
-    // case the run text was empty/whitespace while cell.text is populated.
   }
 
-  // Path 2: whole-cell font color.
   var color = soleResidueColor(cell.text, seqMode, resetMode);
   if (color) {
     cell.font.color = hex(color);
@@ -78,94 +123,99 @@ function recolorCell(cell, seqMode, resetMode) {
   return { count: 0, path: null };
 }
 
-async function applyColors(options) {
-  var seqMode = !!options.seqMode;
-  var resetMode = !!options.resetMode;
-  var scope = options.scope || "selection";
-  var wantDiagnostics = !!options.diagnose;
-
-  if (!hasTableApi()) {
-    throw new Error(
-      "This needs PowerPointApi 1.9 (Mac 16.100+ / Windows 2508+). " +
-      "Your PowerPoint is older - update Office and try again."
-    );
-  }
+/*
+ * Read the target table's contents so the task pane can draw a pickable grid.
+ */
+async function readTable() {
+  requireTableApi();
 
   return PowerPoint.run(async function (context) {
-    var diag = { selectedShapes: 0, shapeTypes: [], tables: 0, cells: 0,
-                 samples: [], paths: {} };
+    var diag = { selectedShapes: 0, shapeTypes: [] };
+    var table = await resolveTable(context, diag);
+    if (!table) return { found: false };
 
-    var targets = [];
-    if (scope === "selection") {
-      var selected = context.presentation.getSelectedShapes();
-      selected.load("items/id,items/type");
-      await context.sync();
-      targets = selected.items;
-      diag.selectedShapes = targets.length;
-    }
-
-    if (!targets.length) {
-      var slide = context.presentation.getSelectedSlides().getItemAt(0);
-      var all = slide.shapes;
-      all.load("items/id,items/type");
-      await context.sync();
-      targets = all.items;
-    }
-
-    var tables = [];
-    targets.forEach(function (shape) {
-      diag.shapeTypes.push(String(shape.type));
-      if (String(shape.type).toLowerCase() === "table") {
-        tables.push(shape.getTable());
+    var rows = table.rowCount, cols = table.columnCount;
+    var handles = [];
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        var cell = table.getCellOrNullObject(r, c);
+        cell.load("text,isNullObject");
+        handles.push(cell);
       }
-    });
-    diag.tables = tables.length;
+    }
+    await context.sync();
 
-    if (!tables.length) {
+    var cells = [];
+    for (var r2 = 0; r2 < rows; r2++) {
+      var row = [];
+      for (var c2 = 0; c2 < cols; c2++) {
+        var h = handles[r2 * cols + c2];
+        row.push(h.isNullObject ? "" : (h.text || ""));
+      }
+      cells.push(row);
+    }
+
+    return { found: true, rows: rows, cols: cols, cells: cells };
+  });
+}
+
+/*
+ * options: { seqMode, resetMode, region, diagnose }
+ * region is { r0, c0, r1, c1 } (inclusive, zero-based) or null for the
+ * whole table.
+ */
+async function applyColors(options) {
+  requireTableApi();
+
+  var seqMode = !!options.seqMode;
+  var resetMode = !!options.resetMode;
+  var region = options.region || null;
+  var wantDiagnostics = !!options.diagnose;
+
+  return PowerPoint.run(async function (context) {
+    var diag = { selectedShapes: 0, shapeTypes: [], region: region,
+                 cellsConsidered: 0, samples: [], paths: {} };
+
+    var table = await resolveTable(context, diag);
+    if (!table) {
       return { count: 0, tables: 0, reason: "no-tables", diag: diag };
     }
 
-    tables.forEach(function (t) { t.load("rowCount,columnCount"); });
-    await context.sync();
+    diag.dimensions = table.rowCount + "x" + table.columnCount;
 
-    diag.dimensions = tables.map(function (t) {
-      return t.rowCount + "x" + t.columnCount;
-    });
-
-    var cells = [];
-    tables.forEach(function (table) {
-      for (var r = 0; r < table.rowCount; r++) {
-        for (var c = 0; c < table.columnCount; c++) {
-          var cell = table.getCellOrNullObject(r, c);
-          cell.load("text,textRuns,isNullObject");
-          cells.push(cell);
-        }
+    var handles = [];
+    for (var r = 0; r < table.rowCount; r++) {
+      for (var c = 0; c < table.columnCount; c++) {
+        if (!inRegion(region, r, c)) continue;
+        var cell = table.getCellOrNullObject(r, c);
+        cell.load("text,textRuns,isNullObject");
+        handles.push({ cell: cell, r: r, c: c });
       }
-    });
+    }
     await context.sync();
 
-    diag.cells = cells.length;
+    diag.cellsConsidered = handles.length;
 
     var total = 0;
-    cells.forEach(function (cell, i) {
-      if (cell.isNullObject) return;
+    handles.forEach(function (h) {
+      if (h.cell.isNullObject) return;
 
       if (wantDiagnostics && diag.samples.length < 6) {
         diag.samples.push({
-          i: i,
-          text: JSON.stringify(cell.text),
-          runs: cell.textRuns
-            ? cell.textRuns.map(function (r) { return JSON.stringify(r.text); })
+          rc: h.r + "," + h.c,
+          text: JSON.stringify(h.cell.text),
+          runs: h.cell.textRuns
+            ? h.cell.textRuns.map(function (x) { return JSON.stringify(x.text); })
             : "(undefined)"
         });
       }
 
-      var res = recolorCell(cell, seqMode, resetMode);
+      var res = recolorCell(h.cell, seqMode, resetMode);
       total += res.count;
       if (res.path) diag.paths[res.path] = (diag.paths[res.path] || 0) + 1;
     });
     await context.sync();
 
-    return { count: total, tables: tables.length, reason: null, diag: diag };
+    return { count: total, tables: 1, reason: null, diag: diag };
   });
 }

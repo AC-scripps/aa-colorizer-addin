@@ -7,7 +7,7 @@
   xsi:type="TaskPaneApp">
 
   <Id>59ad17e0-8a19-424f-9f78-d584c5be64cd</Id>
-  <Version>1.0.2.0</Version>
+  <Version>1.0.3.0</Version>
   <ProviderName>Diercks Lab, Scripps Research</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Amino Acid Colorizer" />
@@ -33,7 +33,7 @@
   </Requirements>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/taskpane.html?v=2" />
+    <SourceLocation DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/taskpane.html?v=3" />
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -100,8 +100,8 @@
         <bt:Image id="Icon.80" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/assets/icon-80.png" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/commands.html?v=2" />
-        <bt:Url id="Taskpane.Url" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/taskpane.html?v=2" />
+        <bt:Url id="Commands.Url" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/commands.html?v=3" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://ac-scripps.github.io/aa-colorizer-addin/taskpane.html?v=3" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="Group.Label" DefaultValue="Amino Acids" />
